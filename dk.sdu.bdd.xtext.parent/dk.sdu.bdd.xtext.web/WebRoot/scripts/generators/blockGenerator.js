@@ -81,7 +81,17 @@ function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
     else if (parsedObj.type === 'ActionRef') {
         addIdBlock(parsedObj.id, parentBlock, workspace, false);
         return parentBlock;
-    }    
+    }   
+    else if (parsedObj.type === 'DeclarativeEntityOrPropertyRef') {
+        var blockToAdd = workspace.newBlock('subBlock_DeclarativeEntityAction');
+        addIdBlock(parsedObj.id, blockToAdd, workspace, false);
+        addValueBlock(parsedObj.propertyValue, blockToAdd, workspace);
+
+        if (parentBlock)
+            addParentBlock(parentBlock, blockToAdd, workspace);
+        
+        return parentBlock;
+    }
 
     var blockDefinition = blockDefinitions.find(function(b) {
         return b.type === parsedObj.type;
@@ -193,7 +203,8 @@ function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
     if (!blockToAdd)
         return null;
 
-    if (parsedObj.reference === 'StateName' && parsedObj.type === 'DeclarativeEntityStatePhraseWithProperty') // fix the order manually
+    if (parsedObj.reference === 'StateName' && 
+        (parsedObj.type === 'DeclarativeEntityStatePhraseWithProperty' || parsedObj.type === 'DeclarativeEntityStatePhrase')) // fix the order manually
         addIdBlock(parsedObj.id, blockToAdd, workspace, true);
     else if (parsedObj.id)
         addIdBlock(parsedObj.id, blockToAdd, workspace, false);
@@ -382,7 +393,7 @@ function setDropdownValue(dropdownValue, blockToAdd, workspace, skip) {
 }
 
 function parseValueString(str) {
-    var regex = /(\w+)\s*(?:\(preposition:\s+(\w+))?(?:,\s*preposition2:\s+(\w+))?(?:,\s*toBeWord:\s+(\w+))?(?:,\s*value:\s*(\w+(?:\s+\w+)*))?\)?(?:\(scenarioName:\s*(\w+(?:\s+\w+)*)\))?(?:\(entityValue:\s*(\w+(?:\s+\w+)*)\))?(?:\(propertyValue:\s*(\w+(?:\s+\w+)*)\))?(?:->\s*(\w+))?\s*(?:\(name:\s+(\w+))?(?:,\s*preposition:\s+(\w+))?(?:,\s*argument:\s+(\w+))?\)?/;
+    var regex = /(\w+)\s*(?:\(preposition:\s+(\w+))?(?:,\s*preposition2:\s+(\w+))?(?:,\s*toBeWord:\s+(\w+))?(?:,\s*value:\s*(\w+(?:\s+\w+)*))?\)?(?:\(scenarioName:\s*(\w+(?:\s+\w+)*)\))?(?:\(propertyValue:\s*(\w+(?:\s+\w+)*)\))?\s*(?:\(entityValue:\s*(\w+(?:\s+\w+)*)\))?(?:->\s*(\w+))?\s*(?:\(name:\s+(\w+))?(?:,\s*preposition:\s+(\w+))?(?:,\s*argument:\s+(\w+))?\)?/;
     var matches = str.match(regex);
 
     if (matches) {
@@ -392,8 +403,8 @@ function parseValueString(str) {
         var toBeWord = matches[4] || null;
         var strValue = matches[5] || null;
         var scenarioName = matches[6] || null;
-        var entityValue = matches[7] || null;
-        var propertyValue = matches[8] || null;
+        var propertyValue = matches[7] || null;
+        var entityValue = matches[8] || null;
         var reference = matches[9] || null;
         var id = matches[10] || null;
         var preposition3 = matches[11] || null;

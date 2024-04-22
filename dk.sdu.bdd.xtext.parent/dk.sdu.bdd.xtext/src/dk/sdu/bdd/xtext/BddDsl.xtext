@@ -136,7 +136,7 @@ DeclarativeEntityOrPropertyRef:
 ;
 
 DeclarativeEntityStatePhrase:
-	entity = DeclarativeEntityRef toBeWord = ToBeWords state = [StateName]
+	entity = DeclarativeEntityRef ToBeWords state = [StateName]
 ;
 
 DeclarativeEntityStatePhraseWithProperty:
@@ -144,7 +144,7 @@ DeclarativeEntityStatePhraseWithProperty:
 ;
 
 ImperativeEntityStatePhrase:
-	entity = ImperativeEntityRef toBeWord = ToBeWords state = [ImperativeStateName]
+	entity = ImperativeEntityRef ToBeWords state = [ImperativeStateName]
 ;
 
 ImperativeEntityStatePhraseWithProperty:
