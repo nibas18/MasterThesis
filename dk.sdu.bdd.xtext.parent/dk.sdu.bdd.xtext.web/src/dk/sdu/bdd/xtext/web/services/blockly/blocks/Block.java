@@ -177,6 +177,7 @@ public class Block  {
 			case "ActionRef":
 			case "Scenario":
 			case "PropertyRef":
+			case "DeclarativeEntityOrPropertyRef":
 				return "Declarative Scenarios";
 			case "ImperativeScenario":
 			case "ImperativeScenarioState":

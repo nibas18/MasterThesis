@@ -131,6 +131,10 @@ ImperativePropertyRef:
     'the' property = [ImperativePropertyDef] (propertyValue = ENTITY_IDENTITY)?
 ;
 
+DeclarativeEntityOrPropertyRef:
+	DeclarativeEntityRef | (property = [PropertyDef] (propertyValue = ENTITY_IDENTITY)?) 
+;
+
 DeclarativeEntityStatePhrase:
 	entity = DeclarativeEntityRef toBeWord = ToBeWords state = [StateName]
 ;
@@ -162,7 +166,7 @@ VerbAction:
 ;
 
 DeclarativeEntityAction: 
-	entity = DeclarativeEntityRef actionRef = ActionRef preposition = PREP entity2 = DeclarativeEntityRef
+	entity = DeclarativeEntityRef actionRef = ActionRef preposition = PREP entity2 = DeclarativeEntityOrPropertyRef
 ;
 
 DeclarativeEntityPropertyAction:
