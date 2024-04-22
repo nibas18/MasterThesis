@@ -181,6 +181,7 @@ public class Block  {
 				return "Declarative Scenarios";
 			case "ImperativeScenario":
 			case "ImperativeScenarioState":
+			case "ImperativeScenarioAction":
 			case "ImperativeEntityRef":
 			case "ImperativeEntityStatePhrase":
 			case "ImperativeEntityPropertyStatePhrase":
