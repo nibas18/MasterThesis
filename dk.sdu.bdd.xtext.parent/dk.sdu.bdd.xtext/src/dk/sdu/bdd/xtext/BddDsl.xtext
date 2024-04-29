@@ -86,22 +86,38 @@ ToBeWords:
 
 DeclarativeScenarioState: 
 	PrePostWords states += (DeclarativeEntityPropertyStatePhrase | DeclarativeEntityStatePhrase | DeclarativeEntityStatePhraseWithProperty)
-	('And' PrePostWords states += (DeclarativeEntityPropertyStatePhrase | DeclarativeEntityStatePhrase | DeclarativeEntityStatePhraseWithProperty))*
+	('And' andStates += DeclarativeScenarioStateAnd)*
+;
+
+DeclarativeScenarioStateAnd:
+	PrePostWords states += (DeclarativeEntityPropertyStatePhrase | DeclarativeEntityStatePhrase | DeclarativeEntityStatePhraseWithProperty)
 ;
 
 ImperativeScenarioState:
 	PrePostWords states += (ImperativeEntityPropertyStatePhrase | ImperativeEntityStatePhrase | ImperativeEntityStatePhraseWithProperty)
-	('And' PrePostWords states += (ImperativeEntityPropertyStatePhrase | ImperativeEntityStatePhrase | ImperativeEntityStatePhraseWithProperty))*
+	('And' andStates += ImperativeScenarioStateAnd)*
+;
+
+ImperativeScenarioStateAnd:
+	PrePostWords states += (ImperativeEntityPropertyStatePhrase | ImperativeEntityStatePhrase | ImperativeEntityStatePhraseWithProperty)
 ;
 
 DeclarativeScenarioAction:
 	actions += (DeclarativeEntityAction | VerbAction | DeclarativeEntityPropertyAction)
-	('And' actions += (DeclarativeEntityAction | VerbAction | DeclarativeEntityPropertyAction))*
+	('And' andActions += DeclarativeScenarioActionAnd)*
+;
+
+DeclarativeScenarioActionAnd:
+	actions += (DeclarativeEntityAction | VerbAction | DeclarativeEntityPropertyAction)
 ;
 
 ImperativeScenarioAction:
 	actions += (ImperativeEntityAction | ImperativeVerbAction | ImperativeEntityPropertyAction)
-	('And' actions += (ImperativeEntityAction | ImperativeVerbAction | ImperativeEntityPropertyAction))*
+	('And' andActions += ImperativeScenarioActionAnd)*
+;
+
+ImperativeScenarioActionAnd:
+	actions += (ImperativeEntityAction | ImperativeVerbAction | ImperativeEntityPropertyAction)
 ;
 
 ENTITY_IDENTITY: (('#' INT) | STRING);

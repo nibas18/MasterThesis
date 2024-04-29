@@ -93,6 +93,7 @@ const runCodeForScenario = (element) => {
 		scenarioCode = scenarioCode.replace('Given', '\nGiven');
 		scenarioCode = scenarioCode.replace('When', '\nWhen');
 		scenarioCode = scenarioCode.replace('Then', '\nThen');
+		scenarioCode = scenarioCode.replace('And', '\nAnd');
 		
 		let editor = getCurrentAceEditor()
 		let doc = editor.env.document.doc

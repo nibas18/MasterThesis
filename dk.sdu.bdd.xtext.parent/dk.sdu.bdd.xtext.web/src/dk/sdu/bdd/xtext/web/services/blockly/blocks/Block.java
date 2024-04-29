@@ -178,6 +178,8 @@ public class Block  {
 			case "Scenario":
 			case "PropertyRef":
 			case "DeclarativeEntityOrPropertyRef":
+			case "DeclarativeScenarioStateAnd":
+			case "DeclarativeScenarioActionAnd":
 				return "Declarative Scenarios";
 			case "ImperativeScenario":
 			case "ImperativeScenarioState":
@@ -191,6 +193,8 @@ public class Block  {
 			case "ImperativePropertyRef":
 			case "ImperativeActionRef":
 			case "ImperativeVerbAction":
+			case "ImperativeScenarioStateAnd":
+			case "ImperativeScenarioActionAnd":
 			case "ADVERB":
 				return "Imperative Scenarios";
 			default:

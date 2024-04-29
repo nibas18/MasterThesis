@@ -1,5 +1,6 @@
 let blockDefinitions;
 let previousBlock;
+let currentScenarioComponent; // need to keep track of this to add "And"s correctly
 
 function generateBlocksFromAst(ast, workspace, blockArray, tabName) {
     if (!workspace || !blockArray || !ast || !ast._children)
@@ -10,6 +11,7 @@ function generateBlocksFromAst(ast, workspace, blockArray, tabName) {
     
     workspace.clear();
     previousBlock = null;
+    currentScenarioComponent = 'given';
 
     if (tabName === 'entities' && ast._children.length > 0)
     {
@@ -65,6 +67,19 @@ function generateBlocks(root, workspace, parentBlock)
 }
 
 function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
+    var blockToAdd = null;
+
+    // Keep track of what part of the scenario we are working on.
+    // This is because we need to know where to add the 'And' blocks.
+    if (parsedObj.type === 'DeclarativeScenarioState') {
+        if (currentScenarioComponent === 'when') 
+            currentScenarioComponent = 'then';
+    }
+    else if (parsedObj.type === 'DeclarativeScenarioAction') {
+        if (currentScenarioComponent === 'given') 
+            currentScenarioComponent = 'when';
+    }
+
     // we have special cases: DeclarativeEntityRef, ActionRef, PropertyRef etc.
     // they require special blocks to be connected.
     if (parsedObj.type === 'DeclarativeEntityRef') {
@@ -83,7 +98,7 @@ function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
         return parentBlock;
     }   
     else if (parsedObj.type === 'DeclarativeEntityOrPropertyRef') {
-        var blockToAdd = workspace.newBlock('subBlock_DeclarativeEntityAction');
+        blockToAdd = workspace.newBlock('subBlock_DeclarativeEntityAction');
         addIdBlock(parsedObj.id, blockToAdd, workspace, false);
         addValueBlock(parsedObj.propertyValue, blockToAdd, workspace);
 
@@ -92,16 +107,21 @@ function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
         
         return parentBlock;
     }
+    else if (parsedObj.type === 'DeclarativeScenarioStateAnd') {
+        blockToAdd = workspace.newBlock("subBlock_Scenario_And"); 
+    }
+    else if (parsedObj.type === 'DeclarativeScenarioActionAnd') {
+        blockToAdd = workspace.newBlock("subBlock_Scenario_And0");
+    }
 
     var blockDefinition = blockDefinitions.find(function(b) {
         return b.type === parsedObj.type;
     });
 
-    var blockToAdd = null;
     if (blockDefinition) { // good. we know this block
         blockToAdd = workspace.newBlock(parsedObj.type);
     }
-    else { // blocks that should be handled separately
+    else if (!blockToAdd) { // blocks that should be handled separately
         var substringToSearch = null;
 
         switch (parsedObj.type)
@@ -241,6 +261,12 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
     var parentBlockDefinition = blockDefinitions.find(function(b) {
         return b.type === parentBlock.type;
     });
+    
+    var blockToAddType = blockToAdd.type;
+    if (blockToAddType === 'subBlock_Scenario_And0') // SPECIAL CASE! this input argument does not exist - it's custom.
+    {
+        blockToAddType = 'subBlock_Scenario_And';
+    }
 
     var inputArgument = null;
 
@@ -249,7 +275,7 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
 
         if (a.check && (a.type === 'input_statement' || a.type === 'input_value')) {    
             for (var j = 0; j < a.check.length; j++) {
-                if (a.check[j].includes(blockToAdd.type)) {
+                if (a.check[j].includes(blockToAddType)) {                   
                     if (a.type === 'input_value') {
                         var input = parentBlock.getInput(a.name);
                         if (!input || !input.connection.isConnected()) {
@@ -257,7 +283,9 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
                             break outerLoop;
                         }
                     }
-                    else {
+                    else if (!(blockToAddType === 'subBlock_Scenario_And' && currentScenarioComponent === 'when' && a.name === 'Scenario_input_3') // "And" block placement
+                        && !(blockToAddType === 'subBlock_Scenario_And' && currentScenarioComponent === 'then' && a.name === 'Scenario_input_3')
+                        && !(blockToAddType === 'subBlock_Scenario_And' && currentScenarioComponent === 'then' && a.name === 'Scenario_input_6')) {
                         inputArgument = a;
                         break outerLoop;
                     }
@@ -280,11 +308,13 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
         
                 // if a previous block exists, form a connection
                 if (connection && connection.targetBlock()) {
-                    var previousConnection = connection.targetBlock().previousConnection;
-                    if (previousConnection) {
-                        blockToAdd.setNextStatement(true);
-                        blockToAdd.nextConnection.connect(previousConnection);
-                    }
+                    if (!connection.targetBlock().tooltip.includes('subBlock_Scenario_And')) {
+                        var previousConnection = connection.targetBlock().previousConnection;
+                        if (previousConnection) {
+                            blockToAdd.setNextStatement(true);
+                            blockToAdd.nextConnection.connect(previousConnection);
+                        }
+                    }                    
                 }
             });
     
