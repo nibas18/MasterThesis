@@ -107,6 +107,8 @@ public class AstServiceDispatcher extends XtextServiceDispatcher {
 		blockArray = new ArrayList<>();
 		blockArray.addAll(parseGrammar(grammarAccess.getGrammar(), general));
 		
+		blockArray = handleDuplicateBlocks(blockArray);
+		
 		Iterator<Block> blockIterator =  blockArray.iterator();
 		
 		while(blockIterator.hasNext()) {
@@ -163,7 +165,7 @@ public class AstServiceDispatcher extends XtextServiceDispatcher {
 		}
 		
 		for (Category c : toolBox.getContents()) {
-            c.setContents(removeDuplicates(c));        
+            c.setContents(handleDuplicateCategoryItems(c, blockArray));        
         }
 		
 		ObjectMapper objectMapper = new ObjectMapper();
@@ -583,16 +585,94 @@ public class AstServiceDispatcher extends XtextServiceDispatcher {
 	    return res;
 	}
 	
-	public static ArrayList<CategoryItem> removeDuplicates(Category oldCategory) 
-    { 
+	public static ArrayList<CategoryItem> handleDuplicateCategoryItems(Category oldCategory, ArrayList<Block> blockDefinitions) 
+	{
 		ArrayList<CategoryItem> newCategoryItems = new ArrayList<>(); 
-
+		
+		int index = 0;
         for (CategoryItem i : oldCategory.getContents())
         {
-            if (!newCategoryItems.stream().anyMatch(ci -> ci.getType().equals(i.getType())))
+        	if (!newCategoryItems.stream().anyMatch(ci -> ci.getType().equals(i.getType())))
+        	{
+        		index = 0;
             	newCategoryItems.add(i);
+        	}
+        	else
+        	{
+        		String newType = i.getType() + index;
+        		if (blockDefinitions.stream().anyMatch(b -> b.getType().equals(newType))) // only add it if we have a block definition for it.
+        		{
+        			i.setType(newType);
+        			newCategoryItems.add(i);
+        			index++;
+        		}
+        	}
+        }
+        
+        return newCategoryItems; 
+	}
+	
+	public static ArrayList<Block> handleDuplicateBlocks(ArrayList<Block> oldBlocks) 
+    { 
+		System.out.println("helloooooooo");
+		
+		ArrayList<Block> newBlocks = new ArrayList<>(); 
+
+		int index = 0;
+        for (Block b : oldBlocks)
+        {
+            if (!newBlocks.stream().anyMatch(nb -> nb.getType().equals(b.getType())))
+            {
+            	
+            	index = 0;            	
+            	newBlocks.add(b);
+            }
+            else if (!newBlocks.stream().anyMatch(nb -> blocksHaveEqualArgs(nb, b)))
+			{
+            	Block blockToAdd = new Block(b.getTooltip() + index);
+        		b.setTooltip(b.getTooltip() + index);
+        		b.setType(b.getType() + index);
+        		b.setColour(blockToAdd.getColour());
+        		newBlocks.add(b);
+			}
         } 
 
-        return newCategoryItems; 
+        return newBlocks; 
     }
+	
+	public static boolean blocksHaveEqualArgs(Block b1, Block b2)
+	{
+		if (b1.getArgCount() != b2.getArgCount())
+			return false;
+		
+		for (int i = 0; i < b1.getArgs0().size(); i++)
+		{
+			Argument argument1 = b1.getArgs0().get(i);
+			Argument argument2 = b2.getArgs0().get(i);
+			
+			if (!argument1.getType().equals(argument2.getType()) || !argument1.getName().equals(argument2.getName()))
+				return false;
+			
+			if (!(argument1 instanceof InputArgument && argument2 instanceof InputArgument))
+				return false;
+			
+			InputArgument inputArgument1 = (InputArgument) argument1;
+			InputArgument inputArgument2 = (InputArgument) argument2;
+			
+			// make sure the check arrays are the same	
+			if (inputArgument1.getCheck().size() != inputArgument2.getCheck().size())
+				return false;
+			
+			for (int j = 0; j < inputArgument1.getCheck().size(); j++)
+			{
+				String check1 = inputArgument1.getCheck().get(j);
+				String check2 = inputArgument2.getCheck().get(j);
+				
+				if (!check1.equals(check2))
+					return false;
+			}
+		}		
+		
+		return true;
+	}
 }

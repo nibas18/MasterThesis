@@ -1,5 +1,7 @@
 let blockDefinitions;
 let previousBlock;
+let currentScenarioComponent; // need to keep track of this to add "And"s correctly
+let isFirstDeclarativeEntityRefForDeclarativeEntityAction; // very special edge case.
 
 function generateBlocksFromAst(ast, workspace, blockArray, tabName) {
     if (!workspace || !blockArray || !ast || !ast._children)
@@ -10,6 +12,8 @@ function generateBlocksFromAst(ast, workspace, blockArray, tabName) {
     
     workspace.clear();
     previousBlock = null;
+    currentScenarioComponent = 'given';
+    isFirstDeclarativeEntityRefForDeclarativeEntityAction = true;
 
     if (tabName === 'entities' && ast._children.length > 0)
     {
@@ -65,11 +69,47 @@ function generateBlocks(root, workspace, parentBlock)
 }
 
 function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
+    var blockToAdd = null;
+
+    // Keep track of what part of the scenario we are working on.
+    // This is because we need to know where to add the 'And' blocks.
+    if (parsedObj.type === 'DeclarativeScenarioState') {
+        if (currentScenarioComponent === 'when') 
+            currentScenarioComponent = 'then';
+    }
+    else if (parsedObj.type === 'DeclarativeScenarioAction') {
+        if (currentScenarioComponent === 'given') 
+            currentScenarioComponent = 'when';
+    }
+
     // we have special cases: DeclarativeEntityRef, ActionRef, PropertyRef etc.
     // they require special blocks to be connected.
     if (parsedObj.type === 'DeclarativeEntityRef') {
-        addIdBlock(parsedObj.id, parentBlock, workspace, false);
-        addValueBlock(parsedObj.entityValue, parentBlock, workspace);
+        // we have to check if the dropdown field value of the parent block is empty.
+        // because we need to add different blocks according to that
+        var dropdownField = parentBlock.getFieldValue('alternativs'); // Get the dropdown field by its name
+
+        if (parentBlock.tooltip !== 'DeclarativeEntityAction' || dropdownField !== ' ') {
+            addIdBlock(parsedObj.id, parentBlock, workspace, false);
+            addValueBlock(parsedObj.entityValue, parentBlock, workspace);
+        }
+        else if (isFirstDeclarativeEntityRefForDeclarativeEntityAction) {
+            addIdBlock(parsedObj.id, parentBlock, workspace, false);
+            addValueBlock(parsedObj.entityValue, parentBlock, workspace);
+            isFirstDeclarativeEntityRefForDeclarativeEntityAction = false;
+        }
+        else if (!isFirstDeclarativeEntityRefForDeclarativeEntityAction){
+            blockToAdd = workspace.newBlock('DeclarativeEntityRef');
+            addIdBlock(parsedObj.id, blockToAdd, workspace, false);
+            addValueBlock(parsedObj.entityValue, blockToAdd, workspace);
+
+            if (parentBlock)
+                addParentBlock(parentBlock, blockToAdd, workspace);
+
+            workspace.getBlockById(blockToAdd.id).initSvg();
+            isFirstDeclarativeEntityRefForDeclarativeEntityAction = true; // reset
+        }
+
         return parentBlock;
     }
     else if (parsedObj.type === 'PropertyRef' 
@@ -81,17 +121,32 @@ function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
     else if (parsedObj.type === 'ActionRef') {
         addIdBlock(parsedObj.id, parentBlock, workspace, false);
         return parentBlock;
-    }    
+    }   
+    else if (parsedObj.type === 'DeclarativeEntityOrPropertyRef') {
+        blockToAdd = workspace.newBlock('subBlock_DeclarativeEntityAction');
+        addIdBlock(parsedObj.id, blockToAdd, workspace, false);
+        addValueBlock(parsedObj.propertyValue, blockToAdd, workspace);
+
+        if (parentBlock)
+            addParentBlock(parentBlock, blockToAdd, workspace);
+        
+        return parentBlock;
+    }
+    else if (parsedObj.type === 'DeclarativeScenarioStateAnd') {
+        blockToAdd = workspace.newBlock("subBlock_Scenario_And"); 
+    }
+    else if (parsedObj.type === 'DeclarativeScenarioActionAnd') {
+        blockToAdd = workspace.newBlock("subBlock_Scenario_And0");
+    }
 
     var blockDefinition = blockDefinitions.find(function(b) {
         return b.type === parsedObj.type;
     });
 
-    var blockToAdd = null;
     if (blockDefinition) { // good. we know this block
         blockToAdd = workspace.newBlock(parsedObj.type);
     }
-    else { // blocks that should be handled separately
+    else if (!blockToAdd) { // blocks that should be handled separately
         var substringToSearch = null;
 
         switch (parsedObj.type)
@@ -193,7 +248,8 @@ function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
     if (!blockToAdd)
         return null;
 
-    if (parsedObj.reference === 'StateName' && parsedObj.type === 'DeclarativeEntityStatePhraseWithProperty') // fix the order manually
+    if (parsedObj.reference === 'StateName' && 
+        (parsedObj.type === 'DeclarativeEntityStatePhraseWithProperty' || parsedObj.type === 'DeclarativeEntityStatePhrase')) // fix the order manually
         addIdBlock(parsedObj.id, blockToAdd, workspace, true);
     else if (parsedObj.id)
         addIdBlock(parsedObj.id, blockToAdd, workspace, false);
@@ -230,6 +286,12 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
     var parentBlockDefinition = blockDefinitions.find(function(b) {
         return b.type === parentBlock.type;
     });
+    
+    var blockToAddType = blockToAdd.type;
+    if (blockToAddType === 'subBlock_Scenario_And0') // SPECIAL CASE! this input argument does not exist - it's custom.
+    {
+        blockToAddType = 'subBlock_Scenario_And';
+    }
 
     var inputArgument = null;
 
@@ -238,7 +300,7 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
 
         if (a.check && (a.type === 'input_statement' || a.type === 'input_value')) {    
             for (var j = 0; j < a.check.length; j++) {
-                if (a.check[j].includes(blockToAdd.type)) {
+                if (a.check[j].includes(blockToAddType)) {                   
                     if (a.type === 'input_value') {
                         var input = parentBlock.getInput(a.name);
                         if (!input || !input.connection.isConnected()) {
@@ -246,7 +308,9 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
                             break outerLoop;
                         }
                     }
-                    else {
+                    else if (!(blockToAddType === 'subBlock_Scenario_And' && currentScenarioComponent === 'when' && a.name === 'Scenario_input_3') // "And" block placement
+                        && !(blockToAddType === 'subBlock_Scenario_And' && currentScenarioComponent === 'then' && a.name === 'Scenario_input_3')
+                        && !(blockToAddType === 'subBlock_Scenario_And' && currentScenarioComponent === 'then' && a.name === 'Scenario_input_6')) {
                         inputArgument = a;
                         break outerLoop;
                     }
@@ -264,19 +328,6 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
         });
 
         if (inputArgument.type === 'input_statement') {
-            targetBlock.inputList.forEach(function(existingInput) {
-                var connection = existingInput.connection;
-        
-                // if a previous block exists, form a connection
-                if (connection && connection.targetBlock()) {
-                    var previousConnection = connection.targetBlock().previousConnection;
-                    if (previousConnection) {
-                        blockToAdd.setNextStatement(true);
-                        blockToAdd.nextConnection.connect(previousConnection);
-                    }
-                }
-            });
-    
             input.connection.connect(blockToAdd.previousConnection);
         }
         else if (inputArgument.type === 'input_value') {
@@ -354,6 +405,9 @@ function addValueBlock(valueString, parentBlock, workspace) {
 }
 
 function setDropdownValue(dropdownValue, blockToAdd, workspace, skip) {
+    if (dropdownValue === 'null')
+        dropdownValue = ' ';
+
     var block = workspace.getBlockById(blockToAdd.id); // Get the block by its ID
     var blockDefinition = blockDefinitions.find(function(b) {
         return b.type === blockToAdd.type;
@@ -382,7 +436,7 @@ function setDropdownValue(dropdownValue, blockToAdd, workspace, skip) {
 }
 
 function parseValueString(str) {
-    var regex = /(\w+)\s*(?:\(preposition:\s+(\w+))?(?:,\s*preposition2:\s+(\w+))?(?:,\s*toBeWord:\s+(\w+))?(?:,\s*value:\s*(\w+(?:\s+\w+)*))?\)?(?:\(scenarioName:\s*(\w+(?:\s+\w+)*)\))?(?:\(entityValue:\s*(\w+(?:\s+\w+)*)\))?(?:\(propertyValue:\s*(\w+(?:\s+\w+)*)\))?(?:->\s*(\w+))?\s*(?:\(name:\s+(\w+))?(?:,\s*preposition:\s+(\w+))?(?:,\s*argument:\s+(\w+))?\)?/;
+    var regex = /(\w+)\s*(?:\(preposition:\s+(\w+))?(?:,\s*preposition2:\s+(\w+))?(?:,\s*toBeWord:\s+(\w+))?(?:,\s*value:\s*(\w+(?:\s+\w+)*))?\)?(?:\(scenarioName:\s*(\w+(?:\s+\w+)*)\))?(?:\(propertyValue:\s*(\w+(?:\s+\w+)*)\))?\s*(?:\(entityValue:\s*(\w+(?:\s+\w+)*)\))?(?:->\s*(\w+))?\s*(?:\(name:\s+(\w+))?(?:,\s*preposition:\s+(\w+))?(?:,\s*argument:\s+(\w+))?\)?/;
     var matches = str.match(regex);
 
     if (matches) {
@@ -392,8 +446,8 @@ function parseValueString(str) {
         var toBeWord = matches[4] || null;
         var strValue = matches[5] || null;
         var scenarioName = matches[6] || null;
-        var entityValue = matches[7] || null;
-        var propertyValue = matches[8] || null;
+        var propertyValue = matches[7] || null;
+        var entityValue = matches[8] || null;
         var reference = matches[9] || null;
         var id = matches[10] || null;
         var preposition3 = matches[11] || null;
