@@ -89,11 +89,11 @@ const runCodeForScenario = (element) => {
 		console.log("runCodeForScenario");
 		let scenarioCode = getBddGenerator(blockArray).workspaceToCode(scenarioWorkspace);
 		
-		scenarioCode = scenarioCode.replace('Scenario:', '\nScenario:');
-		scenarioCode = scenarioCode.replace('Given', '\nGiven');
-		scenarioCode = scenarioCode.replace('When', '\nWhen');
-		scenarioCode = scenarioCode.replace('Then', '\nThen');
-		scenarioCode = scenarioCode.replace('And', '\nAnd');
+		scenarioCode = scenarioCode.replace('Scenario:', '\n Scenario:');
+		scenarioCode = scenarioCode.replace('Given', '\n Given');
+		scenarioCode = scenarioCode.replace('When', '\n When');
+		scenarioCode = scenarioCode.replace('Then', '\n Then');
+		scenarioCode = scenarioCode.replace('And', '\n And');
 		
 		let editor = getCurrentAceEditor()
 		let doc = editor.env.document.doc
