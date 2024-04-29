@@ -302,22 +302,7 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
             return i.name === inputArgument.name;
         });
 
-        if (inputArgument.type === 'input_statement') {
-            targetBlock.inputList.forEach(function(existingInput) {
-                var connection = existingInput.connection;
-        
-                // if a previous block exists, form a connection
-                if (connection && connection.targetBlock()) {
-                    if (!connection.targetBlock().tooltip.includes('subBlock_Scenario_And')) {
-                        var previousConnection = connection.targetBlock().previousConnection;
-                        if (previousConnection) {
-                            blockToAdd.setNextStatement(true);
-                            blockToAdd.nextConnection.connect(previousConnection);
-                        }
-                    }                    
-                }
-            });
-    
+        if (inputArgument.type === 'input_statement') {   
             input.connection.connect(blockToAdd.previousConnection);
         }
         else if (inputArgument.type === 'input_value') {
