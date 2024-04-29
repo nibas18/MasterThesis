@@ -1,6 +1,7 @@
 let blockDefinitions;
 let previousBlock;
 let currentScenarioComponent; // need to keep track of this to add "And"s correctly
+let isFirstDeclarativeEntityRefForDeclarativeEntityAction; // very special edge case.
 
 function generateBlocksFromAst(ast, workspace, blockArray, tabName) {
     if (!workspace || !blockArray || !ast || !ast._children)
@@ -12,6 +13,7 @@ function generateBlocksFromAst(ast, workspace, blockArray, tabName) {
     workspace.clear();
     previousBlock = null;
     currentScenarioComponent = 'given';
+    isFirstDeclarativeEntityRefForDeclarativeEntityAction = true;
 
     if (tabName === 'entities' && ast._children.length > 0)
     {
@@ -83,8 +85,31 @@ function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
     // we have special cases: DeclarativeEntityRef, ActionRef, PropertyRef etc.
     // they require special blocks to be connected.
     if (parsedObj.type === 'DeclarativeEntityRef') {
-        addIdBlock(parsedObj.id, parentBlock, workspace, false);
-        addValueBlock(parsedObj.entityValue, parentBlock, workspace);
+        // we have to check if the dropdown field value of the parent block is empty.
+        // because we need to add different blocks according to that
+        var dropdownField = parentBlock.getFieldValue('alternativs'); // Get the dropdown field by its name
+
+        if (parentBlock.tooltip !== 'DeclarativeEntityAction' || dropdownField !== ' ') {
+            addIdBlock(parsedObj.id, parentBlock, workspace, false);
+            addValueBlock(parsedObj.entityValue, parentBlock, workspace);
+        }
+        else if (isFirstDeclarativeEntityRefForDeclarativeEntityAction) {
+            addIdBlock(parsedObj.id, parentBlock, workspace, false);
+            addValueBlock(parsedObj.entityValue, parentBlock, workspace);
+            isFirstDeclarativeEntityRefForDeclarativeEntityAction = false;
+        }
+        else if (!isFirstDeclarativeEntityRefForDeclarativeEntityAction){
+            blockToAdd = workspace.newBlock('DeclarativeEntityRef');
+            addIdBlock(parsedObj.id, blockToAdd, workspace, false);
+            addValueBlock(parsedObj.entityValue, blockToAdd, workspace);
+
+            if (parentBlock)
+                addParentBlock(parentBlock, blockToAdd, workspace);
+
+            workspace.getBlockById(blockToAdd.id).initSvg();
+            isFirstDeclarativeEntityRefForDeclarativeEntityAction = true; // reset
+        }
+
         return parentBlock;
     }
     else if (parsedObj.type === 'PropertyRef' 
@@ -302,7 +327,7 @@ function addParentBlock(parentBlock, blockToAdd, workspace)
             return i.name === inputArgument.name;
         });
 
-        if (inputArgument.type === 'input_statement') {   
+        if (inputArgument.type === 'input_statement') {
             input.connection.connect(blockToAdd.previousConnection);
         }
         else if (inputArgument.type === 'input_value') {
@@ -380,6 +405,9 @@ function addValueBlock(valueString, parentBlock, workspace) {
 }
 
 function setDropdownValue(dropdownValue, blockToAdd, workspace, skip) {
+    if (dropdownValue === 'null')
+        dropdownValue = ' ';
+
     var block = workspace.getBlockById(blockToAdd.id); // Get the block by its ID
     var blockDefinition = blockDefinitions.find(function(b) {
         return b.type === blockToAdd.type;
