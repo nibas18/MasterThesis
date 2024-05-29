@@ -130,6 +130,8 @@ function addBlockToWorkspace(parsedObj, workspace, parentBlock) {
         if (parentBlock)
             addParentBlock(parentBlock, blockToAdd, workspace);
         
+        workspace.getBlockById(blockToAdd.id).initSvg();
+
         return parentBlock;
     }
     else if (parsedObj.type === 'DeclarativeScenarioStateAnd') {
